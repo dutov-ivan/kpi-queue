@@ -1,0 +1,17 @@
+FROM oven/bun:alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install app dependencies
+COPY package*.json ./
+RUN bun install
+
+# Copy the source files
+COPY . .
+
+# Expose app port
+EXPOSE 5000
+
+# Use Nest CLI's built-in watch mode
+CMD ["bun", "run", "dev"]
