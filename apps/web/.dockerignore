@@ -1,0 +1,9 @@
+node_modules
+bun_modules
+.next
+dist
+.git
+*.log
+.env
+Dockerfile*
+.dockerignore

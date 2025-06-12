@@ -1,0 +1,50 @@
+services:
+  api:
+    container_name: kpi-queue-api-dev
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile.dev
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./apps/api:/app
+      - ./packages:/packages
+      - /app/node_modules
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/nestdb
+      JWT_SECRET: your_jwt_secret
+    command: bun run dev
+
+  web:
+    container_name: kpi-queue-web-dev
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - ./packages:/packages
+      - /app/node_modules
+    depends_on:
+      - api
+    environment:
+      API_URL: http://localhost:5000
+
+  postgres:
+    image: postgres:16
+    container_name: nest-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nestdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
