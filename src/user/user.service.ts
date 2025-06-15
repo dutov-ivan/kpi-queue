@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dtos/CreateUserDto';
 import { PrismaService } from 'src/prisma.service';
 import { User } from 'generated/prisma';
@@ -7,14 +7,10 @@ import { User } from 'generated/prisma';
 export class UserService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findOneByEmail(email: string): Promise<User> {
+  async findOneByEmail(email: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
-
-    if (user === null) {
-      throw new BadRequestException();
-    }
 
     return user;
   }

@@ -11,6 +11,8 @@ datasource db {
 model User {
   id                       Int                @id @default(autoincrement())
   avatar                   String?            @db.VarChar(100)
+  firstName                String             @db.VarChar(100)
+  lastName                 String             @db.VarChar(100)
   email                    String             @db.VarChar(100) @unique
   password                 String             @db.VarChar(100)
   groupParticipantAccounts GroupParticipant[]

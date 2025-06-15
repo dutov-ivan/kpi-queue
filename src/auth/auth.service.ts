@@ -1,11 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
 import * as bcrypt from 'bcrypt';
 import { AccessToken } from 'src/auth/types/AccessToken';
 import { RegisterRequestDto } from 'src/auth/dtos/RegisterRequestDto';
 import { CreateUserDto } from 'src/user/dtos/CreateUserDto';
-import { AuthenticatedUser } from './dtos/AuthenticatedRequest';
 import { User } from 'generated/prisma';
 
 @Injectable()
@@ -15,10 +14,16 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<User> {
-    const user: User = await this.userService.findOneByEmail(email);
+  private readonly logger = new Logger(AuthService.name);
 
-    const isMatch: boolean = bcrypt.compareSync(password, user.password);
+  async validateUser(email: string, password: string): Promise<User> {
+    const user = await this.userService.findOneByEmail(email);
+
+    if (!user) {
+      throw new BadRequestException('Invalid login');
+    }
+
+    const isMatch: boolean = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       throw new BadRequestException('Invalid login');
     }
@@ -26,15 +31,21 @@ export class AuthService {
     return user;
   }
 
-  async login(user: AuthenticatedUser): Promise<AccessToken> {
-    return { accessToken: await this.jwtService.signAsync(user) };
+  async login(user: User): Promise<AccessToken> {
+    // Only include safe fields in the JWT payload
+    const payload = { id: user.id, email: user.email };
+    return { accessToken: await this.jwtService.signAsync(payload) };
   }
 
   async register(user: RegisterRequestDto) {
+    this.logger.debug(`Attempting to register user: ${user.email}`);
     const existingUser = await this.userService.findOneByEmail(user.email);
     if (existingUser) {
+      this.logger.debug(`User with email ${user.email} already exists.`);
       throw new BadRequestException('User with this email already exists');
     }
+
+    this.logger.debug(`Registering user: ${user.email}`);
 
     const hashedPassword = await bcrypt.hash(user.password, 10);
     const newUser: CreateUserDto = { ...user, password: hashedPassword };

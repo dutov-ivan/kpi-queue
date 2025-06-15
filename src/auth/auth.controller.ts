@@ -9,7 +9,6 @@ import {
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginResponseDto } from './dtos/LoginResponseDto';
-import { AuthenticatedRequest } from './dtos/AuthenticatedRequest';
 import { RegisterRequestDto } from './dtos/RegisterRequestDto';
 import { Public } from './decorators/public.decorator';
 import { ApiTags, ApiBody, ApiResponse } from '@nestjs/swagger';
@@ -22,13 +21,22 @@ export class AuthController {
 
   @UseGuards(AuthGuard('local'))
   @Post('login')
-  @ApiBody({ type: AuthenticatedRequest })
+  @ApiBody({
+    schema: {
+      properties: {
+        email: { type: 'string' },
+        password: { type: 'string' },
+      },
+    },
+  })
   @ApiResponse({ status: 200, type: LoginResponseDto })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   async login(
-    @Request() req: AuthenticatedRequest,
+    @Body('email') email: string,
+    @Body('password') password: string,
   ): Promise<LoginResponseDto | BadRequestException> {
-    return this.authService.login(req.user);
+    const user = await this.authService.validateUser(email, password);
+    return this.authService.login(user);
   }
 
   @Post('register')
