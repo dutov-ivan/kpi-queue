@@ -1,18 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'db/user.entity';
-import { Repository } from 'typeorm';
 import { CreateUserDto } from './dtos/CreateUserDto';
+import { PrismaService } from 'src/prisma.service';
+import { User } from 'generated/prisma';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async findOneByEmail(email: string): Promise<User> {
-    const user = await this.userRepository.findOneBy({
-      email,
+    const user = await this.prisma.user.findUnique({
+      where: { email },
     });
 
     if (user === null) {
@@ -23,6 +20,8 @@ export class UserService {
   }
 
   async create(createDto: CreateUserDto): Promise<User> {
-    return await this.userRepository.save(createDto);
+    return await this.prisma.user.create({
+      data: createDto,
+    });
   }
 }

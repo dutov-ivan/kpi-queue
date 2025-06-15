@@ -1,8 +1,14 @@
-export interface AuthenticatedRequest {
-  user: AuthenticatedUser;
+import { ApiProperty } from '@nestjs/swagger';
+
+export class AuthenticatedUser {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  email: string;
 }
 
-export interface AuthenticatedUser {
-  id: number;
-  email: string;
+export class AuthenticatedRequest {
+  @ApiProperty({ type: AuthenticatedUser })
+  user: AuthenticatedUser;
 }

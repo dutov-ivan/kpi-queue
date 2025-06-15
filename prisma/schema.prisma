@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       Int                @id @default(autoincrement())
+  avatar                   String?            @db.VarChar(100)
+  email                    String             @db.VarChar(100) @unique
+  password                 String             @db.VarChar(100)
+  groupParticipantAccounts GroupParticipant[]
+}
+
+model Group {
+  id                Int                @id @default(autoincrement())
+  name              String             @db.VarChar(250)
+  groupParticipants GroupParticipant[]
+}
+
+model GroupParticipant {
+  id                Int                @id @default(autoincrement())
+  role              Role
+  userId            Int
+  groupId           Int
+  group             Group              @relation(fields: [groupId], references: [id])
+  user              User               @relation(fields: [userId], references: [id])
+  queueParticipants QueueParticipant[]
+  declinedFrom      Queue[]            @relation("Declined")
+  invitations       Queue[]            @relation("Invitations")
+
+  @@unique([userId, groupId])
+}
+
+model Queue {
+  id           Int                @id @default(autoincrement())
+  strategy     Strategy
+  participants QueueParticipant[]
+  declined     GroupParticipant[] @relation("Declined")
+  invited      GroupParticipant[] @relation("Invitations")
+}
+
+model QueueParticipant {
+  id                 Int              @id @default(autoincrement())
+  acceptedAt         DateTime         @default(now())
+  queueId            Int
+  groupParticipantId Int
+  groupParticipant   GroupParticipant @relation(fields: [groupParticipantId], references: [id])
+  queue              Queue            @relation(fields: [queueId], references: [id])
+}
+
+enum Role {
+  Admin
+  Participant
+}
+
+enum Strategy {
+  Time
+  FIFO
+  Manual
+}

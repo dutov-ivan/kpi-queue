@@ -1,49 +1,19 @@
-version: '3.9'
+# THIS DOCKERFILE IS INTENDED FOR DEVELOPMENT ENVIRONMENTS
+# DO NOT USE THIS FOR PRODUCTION USAGES.
 
 services:
-  app:
-    container_name: kpi-queue-app-dev
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: dev
-    volumes:
-      - .:/app
-      - ./src/database/migrations:/app/src/database/migrations
-    ports:
-      - '3000:3000'
-    environment:
-      DATABASE_URL: postgres://kpi-queue:password@db:5432/mydb
-      NODE_ENV: development
-      JWT_SECRET: your_jwt_secret
-    depends_on:
-      db:
-        condition: service_healthy
-    develop:
-      watch:
-        - action: sync
-          path: ./src
-          target: /app/src
-          ignore:
-            - node_modules
-        - action: rebuild
-          path: package.json
-
   db:
-    container_name: kpi-queue-db-dev
     image: postgres:16
-    restart: always
-    environment:
-      POSTGRES_USER: kpi-queue
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: mydb
+    ports:
+      - '5432:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}']
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - 'postgresql_data:/var/lib/postgresql/data'
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - POSTGRES_DB=nestjs
+      - POSTGRES_USER=nestjs
+      - POSTGRES_PASSWORD=password
 
 volumes:
-  pgdata:
+  postgresql_data:
+    driver: local
