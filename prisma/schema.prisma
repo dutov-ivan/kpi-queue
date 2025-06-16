@@ -21,6 +21,8 @@ model User {
 model Group {
   id                Int                @id @default(autoincrement())
   name              String             @db.VarChar(250)
+  description       String?            @db.VarChar(500)
+  isPublic         Boolean            @default(false)
   groupParticipants GroupParticipant[]
 }
 
