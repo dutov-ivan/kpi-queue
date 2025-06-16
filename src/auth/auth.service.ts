@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
 import * as bcrypt from 'bcrypt';
@@ -6,11 +11,14 @@ import { AccessToken } from 'src/auth/types/AccessToken';
 import { RegisterRequestDto } from 'src/auth/dtos/RegisterRequestDto';
 import { CreateUserDto } from 'src/user/dtos/CreateUserDto';
 import { User } from 'generated/prisma';
+import { InvitationService } from 'src/invitation/invitation.service';
+import { AuthenticatedUser } from './dtos/AuthenticatedRequest';
 
 @Injectable()
 export class AuthService {
   constructor(
     private userService: UserService,
+    private invitationService: InvitationService,
     private jwtService: JwtService,
   ) {}
 
@@ -20,21 +28,20 @@ export class AuthService {
     const user = await this.userService.findOneByEmail(email);
 
     if (!user) {
-      throw new BadRequestException('Invalid login');
+      throw new UnauthorizedException('Invalid login');
     }
 
     const isMatch: boolean = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new BadRequestException('Invalid login');
+      throw new UnauthorizedException('Invalid login');
     }
 
     return user;
   }
 
-  async login(user: User): Promise<AccessToken> {
+  async login(authenticatedUser: AuthenticatedUser): Promise<AccessToken> {
     // Only include safe fields in the JWT payload
-    const payload = { id: user.id, email: user.email };
-    return { accessToken: await this.jwtService.signAsync(payload) };
+    return { accessToken: await this.jwtService.signAsync(authenticatedUser) };
   }
 
   async register(user: RegisterRequestDto) {
@@ -50,6 +57,16 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(user.password, 10);
     const newUser: CreateUserDto = { ...user, password: hashedPassword };
     const userEntity = await this.userService.create(newUser);
-    return this.login(userEntity);
+
+    const authenticatedUser: AuthenticatedUser = {
+      id: userEntity.id,
+      email: userEntity.email,
+    };
+
+    await this.invitationService.sendGroupInvitationIfNotSentItYet(
+      authenticatedUser,
+    );
+
+    return this.login(authenticatedUser);
   }
 }
