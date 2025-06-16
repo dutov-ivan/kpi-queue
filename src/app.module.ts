@@ -6,10 +6,9 @@ import { UserModule } from './user/user.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtGuard } from './auth/guards/jwt.guard';
 import { ConfigModule } from '@nestjs/config';
-import { GroupsService } from './groups/groups.service';
-import { InvitationService } from './invitation/invitation.service';
 import { GroupsModule } from './groups/groups.module';
 import { PrismaService } from './prisma.service';
+import { InvitationModule } from './invitation/invitation.module';
 
 @Module({
   imports: [
@@ -19,6 +18,7 @@ import { PrismaService } from './prisma.service';
     UserModule,
     AuthModule,
     GroupsModule,
+    InvitationModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -28,8 +28,6 @@ import { PrismaService } from './prisma.service';
       useClass: JwtGuard,
     },
     PrismaService,
-    GroupsService,
-    InvitationService,
   ],
 })
 export class AppModule {}

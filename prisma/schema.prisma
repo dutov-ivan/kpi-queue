@@ -16,6 +16,7 @@ model User {
   email                    String             @db.VarChar(100) @unique
   password                 String             @db.VarChar(100)
   groupParticipantAccounts GroupParticipant[]
+  invitations              GroupInvitation[]
 }
 
 model Group {
@@ -24,6 +25,18 @@ model Group {
   description       String?            @db.VarChar(500)
   isPublic         Boolean            @default(false)
   groupParticipants GroupParticipant[]
+  invitations      GroupInvitation[]
+}
+
+model GroupInvitation {
+  id                Int                @id @default(autoincrement())
+  groupId           Int
+  email            String           @db.VarChar(100)
+  userId            Int?
+  group             Group              @relation(fields: [groupId], references: [id])
+  invitedUser             User?               @relation(fields: [userId], references: [id])
+  createdAt         DateTime           @default(now())
+  isAccepted       Boolean?           
 }
 
 model GroupParticipant {

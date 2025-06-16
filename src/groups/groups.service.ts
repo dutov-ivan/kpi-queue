@@ -4,12 +4,14 @@ import { PrismaService } from 'src/prisma.service';
 import { CreateGroupDto } from './dto/CreateGroupDto';
 import { UpdateGroupDto } from './dto/UpdateGroupDto';
 import { UserService } from 'src/user/user.service';
+import { InvitationService } from 'src/invitation/invitation.service';
 
 @Injectable()
 export class GroupsService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly userService: UserService,
+    private readonly invitationService: InvitationService,
   ) {}
   private readonly logger = new Logger(GroupsService.name);
 
@@ -62,6 +64,24 @@ export class GroupsService {
     return this.prismaService.group.findUnique({
       where: { id },
     });
+  }
+
+  async getGroupInvitationsByEmail(email: string) {
+    return this.invitationService.getInvitationsByEmail(email);
+  }
+
+  async getGroupsByUserId(userId: number): Promise<Group[]> {
+    const groups = await this.prismaService.groupParticipant.findMany({
+      where: { userId },
+      include: { group: true },
+    });
+
+    return groups.map((gp) => gp.group);
+  }
+
+  async inviteParticipant(ownerId: number, groupId: number, email: string) {
+    await this.ensureOwnerIsGroupAdmin(ownerId, groupId);
+    await this.invitationService.sendInvitationIfCan(email, groupId);
   }
 
   async updateGroup(ownerId: number, data: UpdateGroupDto): Promise<Group> {

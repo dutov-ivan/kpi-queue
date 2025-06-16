@@ -4,14 +4,13 @@ import {
   Controller,
   Post,
   Request,
-  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AuthGuard } from '@nestjs/passport';
 import { LoginResponseDto } from './dtos/LoginResponseDto';
 import { RegisterRequestDto } from './dtos/RegisterRequestDto';
 import { Public } from './decorators/public.decorator';
 import { ApiTags, ApiBody, ApiResponse } from '@nestjs/swagger';
+import { LoginRequestDto } from './dtos/LoginRequestDto';
 
 @Public()
 @ApiTags('auth')
@@ -19,7 +18,6 @@ import { ApiTags, ApiBody, ApiResponse } from '@nestjs/swagger';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @UseGuards(AuthGuard('local'))
   @Post('login')
   @ApiBody({
     schema: {
@@ -31,11 +29,11 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, type: LoginResponseDto })
   @ApiResponse({ status: 400, description: 'Bad Request' })
-  async login(
-    @Body('email') email: string,
-    @Body('password') password: string,
-  ): Promise<LoginResponseDto | BadRequestException> {
-    const user = await this.authService.validateUser(email, password);
+  async login(@Body() dto: LoginRequestDto): Promise<LoginResponseDto> {
+    const user = await this.authService.validateUser(dto.email, dto.password);
+    if (!user) {
+      throw new BadRequestException('Invalid email or password');
+    }
     return this.authService.login(user);
   }
 
