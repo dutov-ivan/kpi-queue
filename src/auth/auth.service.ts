@@ -63,7 +63,7 @@ export class AuthService {
       email: userEntity.email,
     };
 
-    await this.invitationService.sendGroupInvitationIfNotSentItYet(
+    await this.invitationService.sendGroupInvitationOnRegistration(
       authenticatedUser,
     );
 

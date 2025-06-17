@@ -16,7 +16,8 @@ model User {
   email                    String             @db.VarChar(100) @unique
   password                 String             @db.VarChar(100)
   groupParticipantAccounts GroupParticipant[]
-  invitations              GroupInvitation[]
+  groupInvitations              GroupInvitation[]
+  queueInvitations              QueueInvitation[]
 }
 
 model Group {
@@ -39,6 +40,17 @@ model GroupInvitation {
   isAccepted       Boolean?           
 }
 
+model QueueInvitation {
+  id                Int                @id @default(autoincrement())
+  queueId           Int
+  email            String           @db.VarChar(100)
+  userId            Int?
+  queue             Queue              @relation("Invitations", fields: [queueId], references: [id])
+  invitedUser             User?               @relation(fields: [userId], references: [id])
+  createdAt         DateTime           @default(now())
+  isAccepted       Boolean?           
+}
+
 model GroupParticipant {
   id                Int                @id @default(autoincrement())
   role              Role
@@ -47,8 +59,6 @@ model GroupParticipant {
   group             Group              @relation(fields: [groupId], references: [id])
   user              User               @relation(fields: [userId], references: [id])
   queueParticipants QueueParticipant[]
-  declinedFrom      Queue[]            @relation("Declined")
-  invitations       Queue[]            @relation("Invitations")
   queueStarter      Queue[]            @relation("QueueStarter")
 
   @@unique([userId, groupId])
@@ -72,8 +82,7 @@ model Queue {
   stepStrategy QueueStepStrategy
   isParticipationAllowedPostStart Boolean @default(false)
   participants QueueParticipant[]
-  declined     GroupParticipant[] @relation("Declined")
-  invited      GroupParticipant[] @relation("Invitations")
+  invitations  QueueInvitation[] @relation("Invitations")
 }
 
 enum QueueStartStrategy {

@@ -4,32 +4,30 @@ import { PrismaService } from 'src/prisma.service';
 import { CreateGroupDto } from './dto/CreateGroupDto';
 import { UpdateGroupDto } from './dto/UpdateGroupDto';
 import { UserService } from 'src/user/user.service';
-import { InvitationService } from 'src/invitation/invitation.service';
 
 @Injectable()
 export class GroupsService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly userService: UserService,
-    private readonly invitationService: InvitationService,
   ) {}
   private readonly logger = new Logger(GroupsService.name);
 
-  async ensureOwnerIsGroupAdmin(ownerId: number, groupId: number) {
+  async ensureUserIsGroupAdmin(userId: number, groupId: number) {
     this.logger.debug(
-      `Ensuring user ${ownerId} is an admin of group ${groupId}`,
+      `Ensuring user ${userId} is an admin of group ${groupId}`,
     );
 
     const participant = await this.prismaService.groupParticipant.findFirst({
       where: {
-        userId: ownerId,
+        userId: userId,
         groupId,
         role: Role.Admin,
       },
     });
 
     if (!participant) {
-      this.logger.warn(`User ${ownerId} is not an admin of group ${groupId}.`);
+      this.logger.warn(`User ${userId} is not an admin of group ${groupId}.`);
       throw new BadRequestException('User is not an admin of this group');
     }
 
@@ -66,10 +64,6 @@ export class GroupsService {
     });
   }
 
-  async getGroupInvitationsByEmail(email: string) {
-    return this.invitationService.getInvitationsByEmail(email);
-  }
-
   async getGroupsByUserId(userId: number): Promise<Group[]> {
     const groups = await this.prismaService.groupParticipant.findMany({
       where: { userId },
@@ -79,13 +73,25 @@ export class GroupsService {
     return groups.map((gp) => gp.group);
   }
 
-  async inviteParticipant(ownerId: number, groupId: number, email: string) {
-    await this.ensureOwnerIsGroupAdmin(ownerId, groupId);
-    await this.invitationService.sendInvitationIfCan(email, groupId);
+  async getGroupParticipantByEmail(email: string, groupId: number) {
+    const participant = await this.prismaService.groupParticipant.findFirst({
+      where: {
+        groupId,
+        user: { email },
+      },
+    });
+
+    if (!participant) {
+      throw new BadRequestException(
+        `No participant found with email ${email} in group ${groupId}`,
+      );
+    }
+
+    return participant;
   }
 
   async updateGroup(ownerId: number, data: UpdateGroupDto): Promise<Group> {
-    await this.ensureOwnerIsGroupAdmin(ownerId, data.id);
+    await this.ensureUserIsGroupAdmin(ownerId, data.id);
     const updatedGroup = await this.prismaService.group.update({
       where: { id: data.id },
       data,
@@ -95,7 +101,7 @@ export class GroupsService {
   }
 
   async deleteGroup(id: number, ownerId: number): Promise<Group> {
-    await this.ensureOwnerIsGroupAdmin(ownerId, id);
+    await this.ensureUserIsGroupAdmin(ownerId, id);
     const deletedGroup = await this.prismaService.group.delete({
       where: { id },
     });

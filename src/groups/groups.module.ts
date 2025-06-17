@@ -3,12 +3,11 @@ import { GroupsService } from './groups.service';
 import { PrismaService } from 'src/prisma.service';
 import { GroupsController } from './groups.controller';
 import { UserService } from 'src/user/user.service';
-import { InvitationService } from 'src/invitation/invitation.service';
 
 @Module({
   imports: [],
   controllers: [GroupsController],
-  providers: [PrismaService, InvitationService, UserService, GroupsService],
-  exports: [],
+  providers: [PrismaService, UserService, GroupsService],
+  exports: [GroupsService],
 })
 export class GroupsModule {}

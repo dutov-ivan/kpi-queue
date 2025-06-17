@@ -9,6 +9,7 @@ import { ConfigModule } from '@nestjs/config';
 import { GroupsModule } from './groups/groups.module';
 import { PrismaService } from './prisma.service';
 import { InvitationModule } from './invitation/invitation.module';
+import { QueuesModule } from './queues/queues.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { InvitationModule } from './invitation/invitation.module';
     AuthModule,
     GroupsModule,
     InvitationModule,
+    QueuesModule,
   ],
   controllers: [AuthController],
   providers: [
