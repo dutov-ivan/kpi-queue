@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Group, Role } from 'generated/prisma';
+import { Group, Role } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
 import { CreateGroupDto } from './dto/CreateGroupDto';
 import { UpdateGroupDto } from './dto/UpdateGroupDto';
@@ -13,11 +13,21 @@ export class GroupsService {
   ) {}
   private readonly logger = new Logger(GroupsService.name);
 
-  async ensureUserIsGroupAdmin(userId: number, groupId: number) {
-    this.logger.debug(
-      `Ensuring user ${userId} is an admin of group ${groupId}`,
-    );
+  async checkIfUserIsGroupParticipant(
+    userId: number,
+    groupId: number,
+  ): Promise<boolean> {
+    const participant = await this.prismaService.groupParticipant.findFirst({
+      where: {
+        userId,
+        groupId,
+      },
+    });
 
+    return !!participant;
+  }
+
+  async checkIfUserIsGroupAdmin(userId: number, groupId: number) {
     const participant = await this.prismaService.groupParticipant.findFirst({
       where: {
         userId: userId,
@@ -27,10 +37,19 @@ export class GroupsService {
     });
 
     if (!participant) {
-      this.logger.warn(`User ${userId} is not an admin of group ${groupId}.`);
-      throw new BadRequestException('User is not an admin of this group');
+      return null;
     }
 
+    return participant;
+  }
+
+  async ensureUserIsGroupAdmin(userId: number, groupId: number) {
+    const participant = await this.checkIfUserIsGroupAdmin(userId, groupId);
+    if (!participant) {
+      throw new BadRequestException(
+        `User with ID ${userId} is not an admin of group with ID ${groupId}`,
+      );
+    }
     return participant;
   }
 

@@ -1,12 +1,20 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { User } from 'generated/prisma';
+import { Queue, User } from '@prisma/client';
 import { AuthenticatedUser } from 'src/auth/dtos/AuthenticatedRequest';
 import { PrismaService } from 'src/prisma.service';
 import { SendOptionsDto } from './dto/SendOptionsDto';
+import { GroupInvitationSender } from './group-invitation-sender/group-invitation.sender';
+import { QueueInvitationSender } from './queue-invitation-sender/queue-invitation.sender';
+import { GroupsService } from 'src/groups/groups.service';
 
 @Injectable()
 export class InvitationService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly groupService: GroupsService,
+    private readonly groupSender: GroupInvitationSender,
+    private readonly queueSender: QueueInvitationSender,
+  ) {}
   private readonly logger = new Logger(InvitationService.name);
 
   async getInvitationsByEmail(email: string) {
@@ -17,49 +25,45 @@ export class InvitationService {
     return invitations;
   }
 
-  private async getUserInvitationState(
-    email: string,
-    groupId: number,
-  ): Promise<{
-    state:
-      | 'Not sent'
-      | 'Already sent'
-      | 'Already participant'
-      | 'Not sent, user not registered';
-    user: User | null;
-  }> {
+  async inviteToQueue(email: string, queue: Queue) {
+    // Check if the user is already invited to the queue
+    const existingInvitation =
+      await this.prismaService.queueInvitation.findFirst({
+        where: { email, queueId: queue.id },
+      });
+
+    if (existingInvitation) {
+      this.logger.warn(
+        `User with email ${email} is already invited to queue ${queue.id}`,
+      );
+      return existingInvitation;
+    }
+
+    // Check if the user already exists
     const user = await this.prismaService.user.findUnique({
       where: { email },
     });
 
-    if (user) {
-      const participant = await this.prismaService.groupParticipant.findUnique({
-        where: {
-          userId_groupId: {
-            userId: user.id,
-            groupId,
-          },
-        },
-      });
-      if (participant) {
-        return { state: 'Already participant', user };
-      }
-    }
-
-    const existingInvitation =
-      await this.prismaService.groupInvitation.findFirst({
-        where: { email, groupId },
-      });
-
-    if (existingInvitation) {
-      return { state: 'Already sent', user };
-    }
-
     if (!user) {
-      return { state: 'Not sent, user not registered', user: null };
+      await this.groupSender.sendToNewUser(email, queue.groupId);
+      await this.queueSender.sendToNewUser(email, queue.id);
+      return;
     }
 
-    return { state: 'Not sent', user };
+    // Check if the user is the participant of the group
+    const isParticipant = await this.groupService.checkIfUserIsGroupParticipant(
+      user.id,
+      queue.groupId,
+    );
+
+    if (!isParticipant) {
+      await this.groupSender.sendToExistingUser(email, queue.groupId, user.id);
+      await this.queueSender.sendToExistingUser(email, queue.id, user.id);
+      return;
+    }
+
+    // The user doesn't have invitation yet, so we send one
+    await this.queueSender.sendToExistingUser(email, queue.id, user.id);
   }
 
   // Returns the user if already invited or a participant, otherwise returns null
@@ -68,26 +72,14 @@ export class InvitationService {
     groupId: number,
     sendOptionsDto: SendOptionsDto,
   ): Promise<User | null> {
-    const { state, user } = await this.getUserInvitationState(email, groupId);
+    const { state, user } = await this.groupSender.send(email, groupId);
     const { shouldThrowOnAlreadyInvited, shouldThrowOnAlreadyParticipant } =
       sendOptionsDto;
     switch (state) {
-      case 'Not sent': {
-        await this.prismaService.groupInvitation.create({
-          data: {
-            email,
-            groupId,
-            userId: user!.id,
-          },
-        });
-
-        this.logger.debug(`Invitation sent to ${email}`);
+      case 'Just sent': {
         return null;
       }
       case 'Already sent':
-        this.logger.debug(
-          `Invitation already sent to ${email} for group ${groupId}`,
-        );
         if (shouldThrowOnAlreadyInvited) {
           throw new BadRequestException(
             `User with email ${email} is already invited to this group.`,
@@ -96,9 +88,6 @@ export class InvitationService {
         return user;
 
       case 'Already participant':
-        this.logger.debug(
-          `User with email ${email} is already a participant in group ${groupId}`,
-        );
         if (shouldThrowOnAlreadyParticipant) {
           throw new BadRequestException(
             `User with email ${email} is already a participant in this group.`,
@@ -106,31 +95,12 @@ export class InvitationService {
         }
         return user;
 
-      case 'Not sent, user not registered':
-        await this.prismaService.groupInvitation.create({
-          data: {
-            email,
-            groupId,
-          },
-        });
+      case 'Just sent, user not registered':
         return null;
     }
   }
 
-  async sendGroupInvitationOnRegistration(user: AuthenticatedUser) {
-    const existingInvitation =
-      await this.prismaService.groupInvitation.findFirst({
-        where: { email: user.email },
-      });
-
-    if (!existingInvitation) {
-      return;
-    }
-    await this.prismaService.groupInvitation.updateMany({
-      where: { email: user.email },
-      data: {
-        userId: user.id,
-      },
-    });
+  async handleRegister(user: AuthenticatedUser) {
+    await this.groupSender.updateInvitationStatus(user);
   }
 }

@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -27,6 +26,7 @@ model Group {
   isPublic         Boolean            @default(false)
   groupParticipants GroupParticipant[]
   invitations      GroupInvitation[]
+  queues           Queue[]
 }
 
 model GroupInvitation {
@@ -40,17 +40,6 @@ model GroupInvitation {
   isAccepted       Boolean?           
 }
 
-model QueueInvitation {
-  id                Int                @id @default(autoincrement())
-  queueId           Int
-  email            String           @db.VarChar(100)
-  userId            Int?
-  queue             Queue              @relation("Invitations", fields: [queueId], references: [id])
-  invitedUser             User?               @relation(fields: [userId], references: [id])
-  createdAt         DateTime           @default(now())
-  isAccepted       Boolean?           
-}
-
 model GroupParticipant {
   id                Int                @id @default(autoincrement())
   role              Role
@@ -59,7 +48,7 @@ model GroupParticipant {
   group             Group              @relation(fields: [groupId], references: [id])
   user              User               @relation(fields: [userId], references: [id])
   queueParticipants QueueParticipant[]
-  queueStarter      Queue[]            @relation("QueueStarter")
+  queueStarter      Queue[]            
 
   @@unique([userId, groupId])
 }
@@ -77,12 +66,25 @@ model Queue {
   createdAt   DateTime           @default(now())
   startedAt   DateTime?
   startFromId Int?
-  startFrom GroupParticipant? @relation("QueueStarter", fields: [startFromId], references: [id])
+  startFrom GroupParticipant? @relation(fields: [startFromId], references: [id])
+  groupId     Int
+  group       Group              @relation(fields: [groupId], references: [id])
   startStrategy QueueStartStrategy
   stepStrategy QueueStepStrategy
   isParticipationAllowedPostStart Boolean @default(false)
   participants QueueParticipant[]
   invitations  QueueInvitation[] @relation("Invitations")
+}
+
+model QueueInvitation {
+  id                Int                @id @default(autoincrement())
+  queueId           Int
+  email            String           @db.VarChar(100)
+  userId            Int?
+  queue             Queue              @relation("Invitations", fields: [queueId], references: [id])
+  invitedUser             User?               @relation(fields: [userId], references: [id])
+  createdAt         DateTime           @default(now())
+  isAccepted       Boolean?           
 }
 
 enum QueueStartStrategy {

@@ -24,12 +24,13 @@ import { QueuesModule } from './queues/queues.module';
   ],
   controllers: [AuthController],
   providers: [
+    PrismaService,
+
     AppService,
     {
       provide: APP_GUARD,
       useClass: JwtGuard,
     },
-    PrismaService,
   ],
 })
 export class AppModule {}

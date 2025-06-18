@@ -9,7 +9,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { QueueStartStrategy, QueueStepStrategy } from 'generated/prisma';
+import { QueueStartStrategy, QueueStepStrategy } from '@prisma/client';
 
 export class CreateQueueDto {
   @ApiProperty()
@@ -19,12 +19,13 @@ export class CreateQueueDto {
 
   @ApiProperty()
   @IsString()
-  description: string;
+  @IsOptional()
+  description?: string;
 
   @ApiProperty()
   @IsDateString()
   @IsOptional()
-  startTime?: string;
+  startedAt?: string;
 
   @ApiProperty()
   @IsNumber()
