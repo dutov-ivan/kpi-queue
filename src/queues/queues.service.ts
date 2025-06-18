@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { GroupsService } from 'src/groups/groups.service';
 import { PrismaService } from 'src/prisma.service';
 import { CreateQueueDto } from './dto/CreateQueueDto';
 import { InvitationService } from 'src/invitation/invitation.service';
@@ -9,8 +8,40 @@ export class QueuesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly invitationService: InvitationService,
-    private readonly groupService: GroupsService,
   ) {}
+
+  async getQueuesForGroup(groupId: number) {
+    return this.prisma.queue.findMany({
+      where: { groupId },
+    });
+  }
+
+  async getQueueById(id: number) {
+    return this.prisma.queue.findUnique({
+      where: { id },
+    });
+  }
+
+  async ensureUserIsQueueParticipant(
+    userId: number,
+    queueId: number,
+  ): Promise<void> {
+    const participant = await this.prisma.queueParticipant.findFirst({
+      where: {
+        groupParticipant: {
+          userId,
+        },
+        queueId,
+      },
+    });
+
+    if (!participant) {
+      throw new Error(
+        `User with ID ${userId} is not a participant of queue with ID ${queueId}`,
+      );
+    }
+  }
+
   async getAllQueuesForUser(userId: number) {
     return this.prisma.queue.findMany({
       where: {
@@ -26,8 +57,6 @@ export class QueuesService {
   }
 
   async createQueue(data: CreateQueueDto, userId: number, groupId: number) {
-    await this.groupService.ensureUserIsGroupAdmin(userId, groupId);
-
     const queue = await this.prisma.queue.create({
       data: {
         ...data,

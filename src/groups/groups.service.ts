@@ -53,6 +53,22 @@ export class GroupsService {
     return participant;
   }
 
+  async ensureUserIsGroupParticipant(
+    userId: number,
+    groupId: number,
+  ): Promise<void> {
+    const isParticipant = await this.checkIfUserIsGroupParticipant(
+      userId,
+      groupId,
+    );
+    if (!isParticipant) {
+      throw new BadRequestException(
+        `User with ID ${userId} is not a participant of group with ID ${groupId}`,
+      );
+    }
+    return;
+  }
+
   async createGroup(ownerId: number, dto: CreateGroupDto): Promise<Group> {
     await this.userService.findOneById(ownerId);
 
@@ -109,10 +125,14 @@ export class GroupsService {
     return participant;
   }
 
-  async updateGroup(ownerId: number, data: UpdateGroupDto): Promise<Group> {
-    await this.ensureUserIsGroupAdmin(ownerId, data.id);
+  async updateGroup(
+    ownerId: number,
+    groupId: number,
+    data: UpdateGroupDto,
+  ): Promise<Group> {
+    await this.ensureUserIsGroupAdmin(ownerId, groupId);
     const updatedGroup = await this.prismaService.group.update({
-      where: { id: data.id },
+      where: { id: groupId },
       data,
     });
 

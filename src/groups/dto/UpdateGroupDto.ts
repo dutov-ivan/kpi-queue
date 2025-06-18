@@ -1,11 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional } from 'class-validator';
 
 export class UpdateGroupDto {
-  @ApiProperty()
-  @IsNumber()
-  id: number;
-
   @ApiPropertyOptional()
   @IsOptional()
   name?: string;
