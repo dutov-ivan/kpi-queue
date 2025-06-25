@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CreateGroupDto } from './dto/CreateGroupDto';
 import { GroupsService } from './groups.service';
 import { User } from 'src/auth/decorators/user.decorator';
@@ -18,14 +10,21 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { GetGroupInvitationDto } from './dto/GetGroupInvitationDto';
-import { InvitationDetailsDto } from './dto/InvitationDetailsDto';
 import { GroupIdParamDto } from './dto/GroupIdParamDto';
+import { InvitationService } from 'src/invitation/invitation.service';
+import { GetGroupInvitationDto } from './dto/invitation/GetGroupInvitationDto';
+import { InvitationDetailsDto } from 'src/invitation/dto/InvitationDetailsDto';
+import { QueuesService } from 'src/queues/queues.service';
+import { GetQueueDto } from 'src/queues/dto/GetQueueDto';
 
 @ApiTags('Groups')
 @Controller('groups')
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) {}
+  constructor(
+    private readonly groupsService: GroupsService,
+    private readonly invitationService: InvitationService,
+    private readonly queueService: QueuesService,
+  ) {}
 
   @Post()
   @ApiCreatedResponse({
@@ -42,37 +41,24 @@ export class GroupsController {
     return this.groupsService.createGroup(userInfo.id, createGroupDto);
   }
 
-  @Patch()
+  @Patch('/:groupId')
   @ApiOkResponse({
     description: 'Group updated successfully',
     type: UpdateGroupDto,
   })
   async updateGroup(
+    @Param() params: GroupIdParamDto,
     @User() userInfo: AuthenticatedUser,
     @Body() updateGroupDto: UpdateGroupDto,
   ) {
-    return this.groupsService.updateGroup(userInfo.id, updateGroupDto);
+    return this.groupsService.updateGroup(
+      userInfo.id,
+      params.id,
+      updateGroupDto,
+    );
   }
 
-  @Get()
-  @ApiOkResponse({
-    description: 'List of groups of the current user',
-    type: [CreateGroupDto],
-  })
-  async getGroups(@User() userInfo: AuthenticatedUser) {
-    return await this.groupsService.getGroupsByUserId(userInfo.id);
-  }
-
-  @Get('invitations')
-  @ApiOkResponse({
-    description: 'List of group invitations for the current user',
-    type: [GetGroupInvitationDto],
-  })
-  async getGroupInvitations(@User() userInfo: AuthenticatedUser) {
-    return await this.groupsService.getGroupInvitationsByEmail(userInfo.email);
-  }
-
-  @Post(':groupId/invite')
+  @Post('/:groupId/invite')
   @ApiCreatedResponse({
     description: 'Invite sent successfully',
     type: GetGroupInvitationDto,
@@ -83,12 +69,65 @@ export class GroupsController {
   async inviteUserToGroup(
     @User() userInfo: AuthenticatedUser,
     @Param() params: GroupIdParamDto,
-    @Query() dto: InvitationDetailsDto,
+    @Body() dto: InvitationDetailsDto,
   ) {
-    return await this.groupsService.inviteParticipant(
-      userInfo.id,
-      params.groupId,
-      dto.email,
+    const { id: groupId } = params;
+    const { id: ownerId } = userInfo;
+    const { email } = dto;
+
+    await this.groupsService.ensureUserIsGroupAdmin(ownerId, groupId);
+    return await this.invitationService.inviteUserToGroupAndGetIfInvited(
+      email,
+      groupId,
+      {
+        shouldThrowOnAlreadyInvited: true,
+        shouldThrowOnAlreadyParticipant: true,
+      },
     );
+  }
+
+  @Get('/:groupId/invite')
+  @ApiOkResponse({
+    description: 'List of group invitations for the current user',
+    type: [GetGroupInvitationDto],
+  })
+  async getMyGroupInvitations(@User() userInfo: AuthenticatedUser) {
+    return await this.invitationService.getInvitationsByEmail(userInfo.email);
+  }
+
+  @Get('/:groupId/queues')
+  @ApiOkResponse({
+    description: 'List of queues in the group',
+    type: [GetQueueDto],
+  })
+  async getGroupQueues(
+    @Param() params: GroupIdParamDto,
+    @User() userInfo: AuthenticatedUser,
+  ) {
+    const { id: groupId } = params;
+    await this.groupsService.ensureUserIsGroupParticipant(userInfo.id, groupId);
+    return await this.queueService.getQueuesForGroup(groupId);
+  }
+
+  @Get('/:groupId/queues/:queueId')
+  @ApiOkResponse({
+    description: 'Get a specific queue in the group',
+    type: GetQueueDto,
+  })
+  async getGroupQueueById(
+    @Param() params: GroupIdParamDto & { queueId: number },
+    @User() userInfo: AuthenticatedUser,
+  ) {
+    const { id: groupId, queueId } = params;
+    await this.queueService.ensureUserIsQueueParticipant(userInfo.id, queueId);
+  }
+
+  @Get()
+  @ApiOkResponse({
+    description: 'List of groups of the current user',
+    type: [CreateGroupDto],
+  })
+  async getGroups(@User() userInfo: AuthenticatedUser) {
+    return await this.groupsService.getGroupsByUserId(userInfo.id);
   }
 }

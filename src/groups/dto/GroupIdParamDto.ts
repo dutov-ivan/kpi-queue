@@ -1,9 +1,10 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, Min } from 'class-validator';
+import { IsNumber } from 'class-validator';
 
 export class GroupIdParamDto {
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  groupId: number;
+  @ApiProperty()
+  @IsNumber()
+  id: number;
 }

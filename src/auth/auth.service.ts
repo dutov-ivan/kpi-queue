@@ -10,7 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { AccessToken } from 'src/auth/types/AccessToken';
 import { RegisterRequestDto } from 'src/auth/dtos/RegisterRequestDto';
 import { CreateUserDto } from 'src/user/dtos/CreateUserDto';
-import { User } from 'generated/prisma';
+import { User } from '@prisma/client';
 import { InvitationService } from 'src/invitation/invitation.service';
 import { AuthenticatedUser } from './dtos/AuthenticatedRequest';
 
@@ -63,9 +63,7 @@ export class AuthService {
       email: userEntity.email,
     };
 
-    await this.invitationService.sendGroupInvitationIfNotSentItYet(
-      authenticatedUser,
-    );
+    await this.invitationService.handleRegister(authenticatedUser);
 
     return this.login(authenticatedUser);
   }
